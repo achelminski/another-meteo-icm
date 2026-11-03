@@ -1,0 +1,43 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Meteo ICM",
+        "description": "Enter a place in Poland or coordinates as “latitude, longitude” and choose the forecast range. The range cannot be changed later — add the integration again for another range.",
+        "data": {
+          "location": "Place or coordinates",
+          "model": "Forecast range"
+        }
+      },
+      "place": {
+        "title": "Choose a place",
+        "data": {
+          "place": "Place"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to meteo.pl.",
+      "not_found": "No such place found in Poland.",
+      "no_data": "The model returns no data for this location."
+    },
+    "abort": {
+      "already_configured": "This location with this model is already configured."
+    }
+  },
+  "selector": {
+    "model": {
+      "options": {
+        "um4_60": "60 h — UM 4 km model",
+        "gfs": "240 h — GFS model"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "meteogram": {
+        "name": "Meteogram"
+      }
+    }
+  }
+}

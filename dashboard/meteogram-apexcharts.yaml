@@ -1,0 +1,258 @@
+# Meteogram z integracji meteo_icm na kartach apexcharts-card (HACS: "ApexCharts Card").
+# Wklej jako kartę (Edytuj dashboard -> Dodaj kartę -> Ręcznie) i podmień "bydgoszcz" na swoją encję.
+#
+# Każda seria czyta tablicę z atrybutu sensora; znacznik czasu i-tej wartości to
+# (first_ts + i * interval) * 1000 ms. Jednostki: °C, mm, %, hPa, m/s.
+#
+# Oś X: karta domyślnie używa osi 'datetime', na której ApexCharts przy 60 h pokazuje
+# tylko daty i ignoruje tickAmount. Dlatego oś jest 'numeric' (wartości to i tak ms),
+# tickAmount = graph_span / 3 h = 20 daje etykietę co 3 godziny, a formatter zamienia ms na godzinę.
+# Zmieniając graph_span, zmień też tickAmount (np. 120h -> 40 albo co 6 h -> 20).
+#
+# Kolejne doby: pierwsza etykieta doby (godzina 00-02) ma skrót dnia tygodnia, np. "śr. 01",
+# a co druga doba ma szare tło. Tło to adnotacje osi X (nie seria danych - seria na całą wysokość
+# przechwytywałaby tooltip), wyliczane przy wczytaniu dashboardu na 60 dni naprzód.
+#
+# Równa szerokość i wspólna oś czasu: osie Y są 'floating' (nie zajmują miejsca), a miejsce na
+# podpisy daje stały margines grid.padding - pole wykresu ma wtedy tę samą geometrię we wszystkich
+# kartach, niezależnie od długości podpisów ("9" vs "1034"). Pływające osie są zaczepione przy
+# krawędzi wykresu, więc labels.offsetX przesuwa podpisy do pola (dla prawej osi znak jest odwrócony).
+# Każdy wykres ma oś po prawej: apexcharts-card tworzy oś tylko dla osi z przypisaną serią, dlatego
+# prawą oś (te same podziałki co lewa) wyznacza niewidoczna seria "Skala" z minimum i maksimum serii
+# lewej osi. Jest ostatnia na liście i wyłączona z tooltipa (enabledOnSeries).
+#
+# Wspólne fragmenty są zdefiniowane raz jako kotwice YAML (&time_axis, &day_bands, &grid, &axis_left, &axis_right)
+# i powtórzone w pozostałych wykresach (*time_axis, ...). Wykres z kilkoma osiami Y wymaga
+# yaxis_id przy każdej serii.
+type: vertical-stack
+cards:
+  - type: weather-forecast
+    entity: weather.meteo_icm_bydgoszcz
+    forecast_type: hourly
+    show_forecast: true
+
+  - type: custom:apexcharts-card
+    header: { show: true, title: Temperatura °C }
+    graph_span: 60h
+    span: { start: hour }
+    now: { show: true }
+    apex_config:
+      chart: { height: 170 }
+      legend: { show: true }
+      grid: &grid { padding: { left: 45, right: 45 } }
+      tooltip: { enabledOnSeries: [0, 1, 2] }
+      annotations: &day_bands |
+        EVAL:(() => {
+          const xaxis = [];
+          const day = new Date();
+          day.setHours(0, 0, 0, 0);
+          day.setDate(day.getDate() - 2);
+          for (let k = 0; k < 62; k++, day.setDate(day.getDate() + 1)) {
+            const local = day.getTime() - day.getTimezoneOffset() * 60000;
+            if (Math.floor(local / 86400000) % 2 === 0) continue;
+            const next = new Date(day);
+            next.setDate(next.getDate() + 1);
+            xaxis.push({ x: day.getTime(), x2: next.getTime(), fillColor: '#000000', opacity: 0.07, borderColor: 'transparent' });
+          }
+          return { xaxis };
+        })()
+      xaxis: &time_axis
+        type: numeric
+        tickAmount: 20
+        labels:
+          formatter: |
+            EVAL:(v) => {
+              const d = new Date(v);
+              const h = String(d.getHours()).padStart(2, '0');
+              return d.getHours() < 3 ? d.toLocaleDateString('pl-PL', { weekday: 'short' }) + ' ' + h : h;
+            }
+    yaxis:
+      - { id: c, decimals: 0, apex_config: &axis_left { floating: true, labels: { offsetX: 34 } } }
+      - { id: c_right, opposite: true, decimals: 0, apex_config: &axis_right { floating: true, labels: { offsetX: 38 } } }
+    series:
+      - entity: sensor.meteo_icm_bydgoszcz_meteogram
+        name: Powietrze
+        color: "#e53935"
+        stroke_width: 3
+        yaxis_id: c
+        data_generator: |
+          const a = entity.attributes;
+          return a.temperature.map((v, i) => [(a.first_ts + i * a.interval) * 1000, v]);
+      - entity: sensor.meteo_icm_bydgoszcz_meteogram
+        name: Odczuwalna
+        color: "#1e40af"
+        stroke_width: 2
+        yaxis_id: c
+        data_generator: |
+          const a = entity.attributes;
+          return a.apparent_temperature.map((v, i) => [(a.first_ts + i * a.interval) * 1000, v]);
+      - entity: sensor.meteo_icm_bydgoszcz_meteogram
+        name: Punkt rosy
+        color: "#7c3aed"
+        stroke_width: 1
+        yaxis_id: c
+        data_generator: |
+          const a = entity.attributes;
+          return a.dew_point.map((v, i) => [(a.first_ts + i * a.interval) * 1000, v]);
+      - entity: sensor.meteo_icm_bydgoszcz_meteogram
+        name: Skala
+        yaxis_id: c_right
+        stroke_width: 0
+        show: { in_legend: false, in_header: false, legend_value: false }
+        data_generator: |
+          // niewidoczna: min i max serii lewej osi, więc prawa oś dostaje te same podziałki
+          const a = entity.attributes, t = (i) => (a.first_ts + i * a.interval) * 1000;
+          const v = ['temperature', 'apparent_temperature', 'dew_point'].flatMap((k) => a[k] ?? []).filter(Number.isFinite);
+          return [[t(0), Math.min(...v)], [t(a.temperature.length - 1), Math.max(...v)]];
+
+  - type: custom:apexcharts-card
+    header: { show: true, title: Opad mm/h · Wilgotność % }
+    graph_span: 60h
+    span: { start: hour }
+    now: { show: true }
+    apex_config:
+      chart: { height: 150 }
+      grid: *grid
+      annotations: *day_bands
+      xaxis: *time_axis
+    yaxis:
+      - { id: mm, min: 0, max: ~1, decimals: 1, apex_config: *axis_left }  # ~1 = co najmniej 1 mm, przy większym opadzie oś rośnie
+      - { id: pct, opposite: true, min: 0, max: 100, decimals: 0, apex_config: *axis_right }
+    series:
+      - entity: sensor.meteo_icm_bydgoszcz_meteogram
+        name: Opad
+        # schodki zamiast słupków: przy serii 'column' ApexCharts dodaje na osi X margines
+        # pół słupka z każdej strony i godziny rozjeżdżają się względem pozostałych wykresów
+        type: area
+        curve: stepline
+        color: "#16a34a"
+        opacity: 0.7
+        stroke_width: 1
+        yaxis_id: mm
+        data_generator: |
+          const a = entity.attributes;
+          return a.precipitation.map((v, i) => [(a.first_ts + i * a.interval) * 1000, v]);
+      - entity: sensor.meteo_icm_bydgoszcz_meteogram
+        name: Wilgotność
+        color: "#ea580c"
+        yaxis_id: pct
+        data_generator: |
+          const a = entity.attributes;
+          return a.humidity.map((v, i) => [(a.first_ts + i * a.interval) * 1000, v]);
+
+  - type: custom:apexcharts-card
+    header: { show: true, title: Ciśnienie hPa (zredukowane) }
+    graph_span: 60h
+    span: { start: hour }
+    now: { show: true }
+    apex_config:
+      chart: { height: 130 }
+      legend: { show: false }
+      tooltip: { enabledOnSeries: [0] }
+      grid: *grid
+      annotations: *day_bands
+      xaxis: *time_axis
+    yaxis:
+      - { id: hpa, decimals: 0, apex_config: *axis_left }
+      - { id: hpa_right, opposite: true, decimals: 0, apex_config: *axis_right }
+    series:
+      - entity: sensor.meteo_icm_bydgoszcz_meteogram
+        name: Ciśnienie
+        type: area
+        color: "#dc2626"
+        opacity: 0.4
+        yaxis_id: hpa
+        data_generator: |
+          const a = entity.attributes;
+          return a.pressure.map((v, i) => [(a.first_ts + i * a.interval) * 1000, v]);
+      - entity: sensor.meteo_icm_bydgoszcz_meteogram
+        name: Skala
+        yaxis_id: hpa_right
+        stroke_width: 0
+        show: { in_legend: false, in_header: false, legend_value: false }
+        data_generator: |
+          const a = entity.attributes, t = (i) => (a.first_ts + i * a.interval) * 1000;
+          const v = a.pressure.filter(Number.isFinite);
+          return [[t(0), Math.min(...v)], [t(a.temperature.length - 1), Math.max(...v)]];
+
+  - type: custom:apexcharts-card
+    header: { show: true, title: Wiatr m/s }
+    graph_span: 60h
+    span: { start: hour }
+    now: { show: true }
+    apex_config:
+      chart: { height: 150 }
+      tooltip: { enabledOnSeries: [0, 1] }
+      grid: *grid
+      annotations: *day_bands
+      xaxis: *time_axis
+    yaxis:
+      - { id: ms, min: 0, decimals: 0, apex_config: *axis_left }
+      - { id: ms_right, opposite: true, min: 0, decimals: 0, apex_config: *axis_right }
+    series:
+      - entity: sensor.meteo_icm_bydgoszcz_meteogram
+        name: Wiatr 10 m
+        type: area
+        color: "#2563eb"
+        opacity: 0.5
+        yaxis_id: ms
+        data_generator: |
+          const a = entity.attributes;
+          return a.wind_speed.map((v, i) => [(a.first_ts + i * a.interval) * 1000, v]);
+      - entity: sensor.meteo_icm_bydgoszcz_meteogram
+        name: Porywy
+        color: "#1e3a8a"
+        curve: stepline
+        yaxis_id: ms
+        data_generator: |
+          const a = entity.attributes;
+          return a.wind_gust.map((v, i) => [(a.first_ts + i * a.interval) * 1000, v]);
+      - entity: sensor.meteo_icm_bydgoszcz_meteogram
+        name: Skala
+        yaxis_id: ms_right
+        stroke_width: 0
+        show: { in_legend: false, in_header: false, legend_value: false }
+        data_generator: |
+          const a = entity.attributes, t = (i) => (a.first_ts + i * a.interval) * 1000;
+          const v = ['wind_speed', 'wind_gust'].flatMap((k) => a[k] ?? []).filter(Number.isFinite);
+          return [[t(0), 0], [t(a.temperature.length - 1), Math.max(...v)]];
+
+  - type: custom:apexcharts-card
+    header: { show: true, title: Zachmurzenie % }
+    graph_span: 60h
+    span: { start: hour }
+    now: { show: true }
+    apex_config:
+      chart: { height: 130 }
+      tooltip: { enabledOnSeries: [0, 1] }
+      grid: *grid
+      annotations: *day_bands
+      xaxis: *time_axis
+    yaxis:
+      - { id: pct, min: 0, max: 100, decimals: 0, apex_config: *axis_left }
+      - { id: pct_right, opposite: true, min: 0, max: 100, decimals: 0, apex_config: *axis_right }
+    series:
+      - entity: sensor.meteo_icm_bydgoszcz_meteogram
+        name: Ogólne
+        type: area
+        color: "#6b7280"
+        opacity: 0.5
+        yaxis_id: pct
+        data_generator: |
+          const a = entity.attributes;
+          return a.cloud_coverage.map((v, i) => [(a.first_ts + i * a.interval) * 1000, v]);
+      - entity: sensor.meteo_icm_bydgoszcz_meteogram
+        name: Niskie
+        color: "#111827"
+        yaxis_id: pct
+        data_generator: |
+          const a = entity.attributes;
+          return a.cloud_low.map((v, i) => [(a.first_ts + i * a.interval) * 1000, v]);
+      - entity: sensor.meteo_icm_bydgoszcz_meteogram
+        name: Skala
+        yaxis_id: pct_right
+        stroke_width: 0
+        show: { in_legend: false, in_header: false, legend_value: false }
+        data_generator: |
+          const a = entity.attributes, t = (i) => (a.first_ts + i * a.interval) * 1000;
+          return [[t(0), 0], [t(a.temperature.length - 1), 100]];

@@ -1,0 +1,43 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Meteo ICM",
+        "description": "Podaj miejscowość w Polsce albo współrzędne w formacie „szerokość, długość” i wybierz zakres prognozy. Zakresu nie można później zmienić — dla drugiego zakresu dodaj integrację ponownie.",
+        "data": {
+          "location": "Miejscowość lub współrzędne",
+          "model": "Zakres prognozy"
+        }
+      },
+      "place": {
+        "title": "Wybierz miejscowość",
+        "data": {
+          "place": "Miejscowość"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Nie udało się połączyć z meteo.pl.",
+      "not_found": "Nie znaleziono takiej miejscowości w Polsce.",
+      "no_data": "Model nie zwraca danych dla tej lokalizacji."
+    },
+    "abort": {
+      "already_configured": "Ta lokalizacja z tym modelem jest już skonfigurowana."
+    }
+  },
+  "selector": {
+    "model": {
+      "options": {
+        "um4_60": "60 h — model UM 4 km",
+        "gfs": "240 h — model GFS"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "meteogram": {
+        "name": "Meteogram"
+      }
+    }
+  }
+}
