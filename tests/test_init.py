@@ -56,7 +56,7 @@ async def test_entities(
 
 
 async def test_hourly_forecast(
-    hass: HomeAssistant, mock_client: AsyncMock, freezer: FrozenDateTimeFactory
+    hass: HomeAssistant, mock_client: AsyncMock, meteogram, freezer: FrozenDateTimeFactory
 ) -> None:
     freezer.move_to("2026-11-03T10:30:00+00:00")
     await _setup(hass)
@@ -74,6 +74,11 @@ async def test_hourly_forecast(
     assert first["datetime"] == "2026-11-03T10:00:00+00:00"
     assert first["condition"] is not None
     assert {"temperature", "precipitation", "wind_speed", "cloud_coverage"} <= first.keys()
+    # Opad w API to suma za godzinę kończącą się o czasie elementu - godzina 10:00-11:00 to element 10.
+    assert first["temperature"] == meteogram.series["temperature"][9]
+    assert first["precipitation"] == meteogram.series["precipitation"][10]
+    assert first["precipitation_probability"] == meteogram.series["precipitation_probability"][10]
+    assert "precipitation" not in forecast[-1]  # ostatnia godzina nie ma już sumy za kolejną (HA pomija None)
 
 
 async def test_new_run_only_fetched_once(

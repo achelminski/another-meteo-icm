@@ -13,7 +13,7 @@ const isAvailable = (f, requires) => !requires || f.hasAny([].concat(requires));
 
 // ------------------------------------------------------------------ legenda pod panelami
 
-const MARKER_WIDTH = { none: 0, tri: 38, tribar: 22, tridot: 28 };
+const MARKER_WIDTH = { none: 0, tri: 38, tribar: 22, tridot: 38 };
 const markerWidth = (item) => MARKER_WIDTH[item.kind] ?? 14;
 const itemWidth = (item) => markerWidth(item) + item.text.length * 5.1 + (markerWidth(item) ? 5 : 0);
 
@@ -34,7 +34,7 @@ function marker(item, x, cy) {
     case "tribar":
       return item.colors.map((c, k) => rect(x + 2 + k * 7, cy - 6, 1.5, 11, { fill: c })).join("");
     case "tridot":
-      return item.colors.map((c, k) => el("circle", { cx: x + 4 + k * 10, cy, r: 3.5, fill: c })).join("");
+      return item.colors.map((c, k) => el("circle", { cx: x + 4 + k * 10, cy, r: 3.5, fill: c, stroke: item.stroke, "stroke-width": item.stroke && 0.8 })).join("");
     default:
       return "";
   }

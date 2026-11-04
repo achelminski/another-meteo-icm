@@ -45,16 +45,16 @@ Entities for Warsaw (for 240 h: `weather.meteo_icm_warszawa_240_h` and `sensor.m
 
 | Entity | Description |
 |---|---|
-| `weather.meteo_icm_warszawa` | "Now" values (the forecast hour covering the current time): temperature, apparent temperature, dew point, humidity, pressure, wind and gusts, bearing, cloud coverage, visibility; hourly forecast. The `condition` is derived heuristically from clouds, precipitation, storm, fog and the sun position. |
+| `weather.meteo_icm_warszawa` | "Now" values (the forecast hour covering the current time): temperature, apparent temperature, dew point, humidity, pressure, wind and gusts, bearing, cloud coverage, visibility; hourly forecast. The `condition` is derived from clouds, precipitation and its type, storm, fog, gusts and the sun position, using the meteo.pl icon thresholds. Trace precipitation (`precipitation_type` 0) does not change the condition and is not drawn on the card. Precipitation and its chance in a forecast entry refer to the hour starting at that time. |
 | `sensor.meteo_icm_warszawa_meteogram` | State = model run time. Attributes: `model`, `latitude`, `longitude`, `first_ts` (unix, start of the series), `interval` (s, usually 3600) and the series arrays. |
 
-The *i*-th element of every series refers to `first_ts + i * interval`. Series in the sensor attributes:
+The *i*-th element of every series refers to `first_ts + i * interval`; precipitation and storms are totals for the hour ending at that time. Series in the sensor attributes:
 
 | Group | Attributes | Unit |
 |---|---|---|
 | Temperature | `temperature`, `temperature_min`, `temperature_max`, `apparent_temperature`, `apparent_temperature_min`, `apparent_temperature_max`, `dew_point`, `ground_temperature_min`, `ground_temperature_max` | °C |
-| Precipitation | `precipitation`, `precipitation_max` · `precipitation_probability` · `precipitation_type` (raw model code) | mm/h · % · — |
-| Storm | `storm`, `flash` | — |
+| Precipitation | `precipitation`, `precipitation_max` · `precipitation_probability` · `precipitation_type` (0 none/trace, 1 rain, 2 snow, 3 sleet) | mm/h · % · — |
+| Storm | `storm` (> 0: storm possible) · `flash` (lightning flashes per hour) | — · 1/h |
 | Humidity | `humidity` | % |
 | Pressure | `pressure` (reduced to sea level), `pressure_station` (at station level) | hPa |
 | Wind | `wind_speed`, `wind_gust` · `wind_bearing` | m/s · ° |

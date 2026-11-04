@@ -1,7 +1,7 @@
 import { axisTicks } from "../lib/frame.js";
 import { clamp, isNum, linearScale } from "../lib/math.js";
 import { dotsPath, group, path, rect, rectsPath, segmentsPath, smoothPath, text } from "../lib/svg.js";
-import { COLOR, STORM_COLORS, precipitationColor, stormColor } from "../lib/theme.js";
+import { COLOR, STORM_COLORS, STORM_STROKE, precipitationColor, stormColor } from "../lib/theme.js";
 
 const AXIS_MAX = 5; // mm/h; wyższy opad maksymalny zaznaczany kolorem "powyżej skali"
 const MIN_SHOWN = 0.05; // mm/h; mniejsze opady nie są rysowane
@@ -69,16 +69,19 @@ export default {
     const y = (v) => scale(Math.min(v, AXIS_MAX));
     const yHumidity = (v) => top + h - ((clamp(v, 50, 100) - 50) / 50) * h;
     const bottom = top + h;
-    const temperature = f.series("temperature");
+    const types = f.series("precipitation_type");
     const precipitationMax = f.series("precipitation_max");
     const barWidth = lay.hourWidth * 0.7;
+    // Opad i burza to sumy za godzinę kończącą się o czasie i - środek tej godziny, jak na meteo.pl.
+    const xHour = (i) => lay.x(i - 0.5);
 
     const bars = byColor();
     const maxLines = byColor();
     const overScale = [];
     f.series("precipitation").forEach((v, i) => {
-      const x = lay.x(i);
-      const color = precipitationColor(temperature[i]);
+      const x = xHour(i);
+      const color = precipitationColor(types[i]);
+      if (!color) return; // opad śladowy - bez słupka
       const vMax = precipitationMax[i];
       if (isNum(vMax) && vMax > MIN_SHOWN) {
         if (vMax > AXIS_MAX) overScale.push([x, bottom, x, top]);
@@ -88,8 +91,9 @@ export default {
     });
 
     const storms = byColor();
+    const flash = f.series("flash");
     f.series("storm").forEach((v, i) => {
-      if (isNum(v) && v > 0) storms.add(stormColor(v), [lay.x(i), top + 6]);
+      if (isNum(v) && v > 0) storms.add(stormColor(flash[i]), [xHour(i), top + 6]);
     });
     const stormRadius = Math.min(4, lay.dotRadius);
 
@@ -97,7 +101,9 @@ export default {
     for (const [color, lines] of maxLines.entries()) data += path(segmentsPath(lines), { stroke: color, "stroke-width": 1.2, opacity: 0.3 });
     data += path(segmentsPath(overScale), { stroke: COLOR.overScale, "stroke-width": 1.2 });
     for (const [color, rects] of bars.entries()) data += path(rectsPath(rects), { fill: color });
-    for (const [color, points] of storms.entries()) data += path(dotsPath(points, stormRadius), { fill: color });
+    for (const [color, points] of storms.entries()) {
+      data += path(dotsPath(points, stormRadius), { fill: color, stroke: STORM_STROKE, "stroke-width": 1 });
+    }
     data += path(smoothPath(f.points("humidity", lay.x, yHumidity)), { fill: "none", stroke: COLOR.humidity, "stroke-width": 3 });
 
     return {
@@ -114,7 +120,7 @@ export default {
       { kind: "tri", colors: [COLOR.rain, COLOR.snow, COLOR.sleet], text: "Deszcz/Śnieg/Deszcz ze śniegiem" },
       { kind: "tribar", colors: [COLOR.rain, COLOR.snow, COLOR.sleet], text: "Opad max", requires: "precipitation_max" },
       { kind: "vbar", color: COLOR.overScale, text: "Opad maks. powyżej skali", requires: "precipitation_max" },
-      { kind: "tridot", colors: STORM_COLORS, text: "Burza", requires: "storm" },
+      { kind: "tridot", colors: STORM_COLORS, stroke: STORM_STROKE, text: "Burza możliwa/słaba/umiark./silna", requires: "storm" },
       { kind: "line", color: COLOR.humidity, text: "Wilgotność wzgl.", right: true, requires: "humidity" },
     ]],
 
@@ -150,8 +156,8 @@ export default {
           { order: 6, label: { text: "Śnieg", color: COLOR.snow, at: [T.X(9), y(1.2)] } },
           {
             requires: "storm", order: 0,
-            svg: STORM_COLORS.map((c, k) => path(dotsPath([[T.X(9 + k), T.top + 6]], 3), { fill: c })).join(""),
-            label: { text: "Burza słaba/umiark./silna", color: "#c62828", at: [T.X(10), T.top + 6] },
+            svg: STORM_COLORS.map((c, k) => path(dotsPath([[T.X(8 + k), T.top + 6]], 3), { fill: c, stroke: STORM_STROKE, "stroke-width": 0.8 })).join(""),
+            label: { text: "Burza możliwa/słaba/umiark./silna", color: "#c62828", at: [T.X(9.5), T.top + 6] },
           },
           {
             requires: "humidity", order: 2,

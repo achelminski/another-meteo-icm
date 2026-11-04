@@ -17,6 +17,8 @@ from homeassistant.components.weather import (
     ATTR_CONDITION_SNOWY,
     ATTR_CONDITION_SNOWY_RAINY,
     ATTR_CONDITION_SUNNY,
+    ATTR_CONDITION_WINDY,
+    ATTR_CONDITION_WINDY_VARIANT,
     Forecast,
     SingleCoordinatorWeatherEntity,
     WeatherEntityFeature,
@@ -39,6 +41,9 @@ from .entity import device_info
 
 PARALLEL_UPDATES = 0
 
+# Kody pcpttl_type_max (wg kodu wykresu meteo.pl): 1 deszcz, 2 śnieg, 3 deszcz ze śniegiem.
+PRECIPITATION_TYPES = {1, 2, 3}
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -48,33 +53,50 @@ async def async_setup_entry(
     async_add_entities([MeteoIcmWeather(entry.runtime_data)])
 
 
-def _condition(data: Meteogram, idx: int, observer: Observer) -> str | None:
-    """Uproszczone wyznaczenie stanu pogody z danych godzinowych.
+def _hour_sum(data: Meteogram, key: str, idx: int) -> float | None:
+    """Wartość za godzinę [t_idx, t_idx+1] serii sumowanej godzinowo (opad, burza, szansa opadu).
 
-    Kod typu opadu z API (pcpttl_type_max) nie jest udokumentowany, więc rodzaj opadu
-    zgadujemy z temperatury. Progi są umowne - do dostrojenia.
+    API podaje je jako sumy za godzinę kończącą się o czasie elementu (meteo.pl rysuje je w i - 0.5),
+    a godzina prognozy w HA zaczyna się o swoim czasie - stąd element następny.
+    """
+    return data.value(key, idx + 1)
+
+
+def _condition(data: Meteogram, idx: int, observer: Observer) -> str | None:
+    """Stan pogody dla godziny idx, z progami ikon meteo.pl (getIcon w kodzie strony).
+
+    Rodzaj opadu z kodu API (1 deszcz, 2 śnieg, 3 deszcz ze śniegiem); opad śladowy (kod 0) nie zmienia
+    stanu. Mgłę wyznacza też widzialność < 1 km (GFS nie podaje mgły).
     """
     value = data.value
-    precipitation = value("precipitation", idx) or 0
     temperature = value("temperature", idx)
     cloud = value("cloud_coverage", idx)
     if cloud is None and temperature is None:
         return None
+    # Jak na meteo.pl: opad maksymalny, a gdy go nie ma (GFS) - średni; każdy niezerowy się liczy.
+    rain = _hour_sum(data, "precipitation_max", idx)
+    if rain is None:
+        rain = _hour_sum(data, "precipitation", idx)
+    kind = _hour_sum(data, "precipitation_type", idx)
+    rain = (rain or 0) if kind in PRECIPITATION_TYPES else 0
+    gust = value("wind_gust", idx) or 0
 
-    if (value("storm", idx) or 0) > 0:
-        return ATTR_CONDITION_LIGHTNING_RAINY if precipitation >= 0.1 else ATTR_CONDITION_LIGHTNING
-    if precipitation >= 0.1:
-        if temperature is not None and temperature <= 0:
+    if (_hour_sum(data, "storm", idx) or 0) > 0:
+        return ATTR_CONDITION_LIGHTNING_RAINY if rain > 0 else ATTR_CONDITION_LIGHTNING
+    if rain > 0:
+        if kind == 2:
             return ATTR_CONDITION_SNOWY
-        if temperature is not None and temperature <= 2:
+        if kind == 3:
             return ATTR_CONDITION_SNOWY_RAINY
-        return ATTR_CONDITION_POURING if precipitation >= 4 else ATTR_CONDITION_RAINY
+        return ATTR_CONDITION_POURING if rain >= 4 else ATTR_CONDITION_RAINY
     visibility = value("visibility", idx)
-    if (value("fog", idx) or 0) >= 50 or (visibility is not None and visibility < 1):
+    if (value("fog", idx) or 0) >= 85 or (visibility is not None and visibility < 1):
         return ATTR_CONDITION_FOG
-    if cloud is not None and cloud >= 80:
+    if gust >= 11.5:
+        return ATTR_CONDITION_WINDY_VARIANT if cloud is not None and cloud >= 50 else ATTR_CONDITION_WINDY
+    if cloud is not None and cloud >= 75:
         return ATTR_CONDITION_CLOUDY
-    if cloud is not None and cloud >= 30:
+    if cloud is not None and cloud >= 20:
         return ATTR_CONDITION_PARTLYCLOUDY
     # Środek godziny, której dotyczy wartość; -0.833° = wschód/zachód z refrakcją.
     when = data.first_time + idx * data.interval + data.interval / 2
@@ -170,8 +192,8 @@ class MeteoIcmWeather(SingleCoordinatorWeatherEntity[MeteoIcmCoordinator]):
                     native_dew_point=value("dew_point", idx),
                     humidity=value("humidity", idx),
                     native_pressure=value("pressure", idx),
-                    native_precipitation=value("precipitation", idx),
-                    precipitation_probability=value("precipitation_probability", idx),
+                    native_precipitation=_hour_sum(data, "precipitation", idx),
+                    precipitation_probability=_hour_sum(data, "precipitation_probability", idx),
                     native_wind_speed=value("wind_speed", idx),
                     native_wind_gust_speed=value("wind_gust", idx),
                     wind_bearing=value("wind_bearing", idx),

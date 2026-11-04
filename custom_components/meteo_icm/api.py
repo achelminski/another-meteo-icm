@@ -51,10 +51,12 @@ FIELDS: dict[str, tuple[str, Callable[[float], float] | None]] = {
     "grdtmp_min": ("ground_temperature_min", None),
     "pcpttl_aver": ("precipitation", None),
     "pcpttl_max": ("precipitation_max", None),
-    "pcpttl_type_max": ("precipitation_type", None),  # kod nieudokumentowany - przekazywany bez zmian
+    # Kody i znaczenia poniżej wg kodu wykresu meteo.pl (oficjalnej dokumentacji API brak):
+    # 0 brak/śladowy opad, 1 deszcz, 2 śnieg, 3 deszcz ze śniegiem.
+    "pcpttl_type_max": ("precipitation_type", None),
     "pcpttlprob_point": ("precipitation_probability", None),
-    "storm_max": ("storm", None),
-    "flash_max": ("flash", None),
+    "storm_max": ("storm", None),  # > 0: możliwa burza (meteo.pl traktuje wartość jak flagę)
+    "flash_max": ("flash", None),  # wyładowania na godzinę: < 10 słaba, < 30 umiarkowana, ≥ 30 silna burza
     "realhum_aver": ("humidity", None),
     "slpres_point": ("pressure", _pa_to_hpa),
     "trpres_point": ("pressure_station", _pa_to_hpa),

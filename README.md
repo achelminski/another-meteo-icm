@@ -45,16 +45,16 @@ Encje dla Warszawy (dla 240 h: `weather.meteo_icm_warszawa_240_h` i `sensor.mete
 
 | Encja | Opis |
 |---|---|
-| `weather.meteo_icm_warszawa` | Warunki „teraz” (godzina prognozy obejmująca bieżący czas): temperatura, odczuwalna, punkt rosy, wilgotność, ciśnienie, wiatr i porywy, kierunek, zachmurzenie, widzialność; prognoza godzinowa. Stan (`condition`) wyznaczany heurystycznie z zachmurzenia, opadu, burzy, mgły i położenia słońca. |
+| `weather.meteo_icm_warszawa` | Warunki „teraz” (godzina prognozy obejmująca bieżący czas): temperatura, odczuwalna, punkt rosy, wilgotność, ciśnienie, wiatr i porywy, kierunek, zachmurzenie, widzialność; prognoza godzinowa. Stan (`condition`) wyznaczany z zachmurzenia, opadu i jego rodzaju, burzy, mgły, porywów i położenia słońca, z progami ikon meteo.pl. Opad śladowy (`precipitation_type` 0) nie zmienia stanu i nie jest rysowany na karcie. Opad i jego szansa we wpisie prognozy dotyczą godziny, która się o tym czasie zaczyna. |
 | `sensor.meteo_icm_warszawa_meteogram` | Stan = czas przebiegu modelu. Atrybuty: `model`, `latitude`, `longitude`, `first_ts` (unix, początek serii), `interval` (s, zwykle 3600) oraz tablice serii. |
 
-Wartość *i*-tego elementu serii dotyczy czasu `first_ts + i * interval`. Serie w atrybutach sensora:
+Wartość *i*-tego elementu serii dotyczy czasu `first_ts + i * interval`; opad i burza to sumy za godzinę kończącą się o tym czasie. Serie w atrybutach sensora:
 
 | Grupa | Atrybuty | Jednostka |
 |---|---|---|
 | Temperatura | `temperature`, `temperature_min`, `temperature_max`, `apparent_temperature`, `apparent_temperature_min`, `apparent_temperature_max`, `dew_point`, `ground_temperature_min`, `ground_temperature_max` | °C |
-| Opad | `precipitation`, `precipitation_max` · `precipitation_probability` · `precipitation_type` (surowy kod modelu) | mm/h · % · — |
-| Burza | `storm`, `flash` | — |
+| Opad | `precipitation`, `precipitation_max` · `precipitation_probability` · `precipitation_type` (0 brak/śladowy, 1 deszcz, 2 śnieg, 3 deszcz ze śniegiem) | mm/h · % · — |
+| Burza | `storm` (> 0: możliwa burza) · `flash` (wyładowania na godzinę) | — · 1/h |
 | Wilgotność | `humidity` | % |
 | Ciśnienie | `pressure` (zredukowane do poziomu morza), `pressure_station` (na poziomie stacji) | hPa |
 | Wiatr | `wind_speed`, `wind_gust` · `wind_bearing` | m/s · ° |

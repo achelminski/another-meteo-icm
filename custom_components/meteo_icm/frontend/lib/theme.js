@@ -41,9 +41,13 @@ export const COLOR = Object.freeze({
   fog: "#ffb400",
 });
 
-/** Burza słaba / umiarkowana / silna. */
-export const STORM_COLORS = Object.freeze(["#f0a030", "#e02020", "#8b4513"]);
-export const stormColor = (v) => STORM_COLORS[v >= 3 ? 2 : v >= 2 ? 1 : 0];
+/**
+ * Burza możliwa / słaba / umiarkowana / silna - jak na meteo.pl: kropka tam, gdzie storm > 0,
+ * kolor z liczby wyładowań na godzinę (flash): 0, < 10, < 30, ≥ 30.
+ */
+export const STORM_COLORS = Object.freeze(["#ffffff", "#ffff00", "#ff8000", "#ff0000"]);
+export const STORM_STROKE = "#565656";
+export const stormColor = (flash) => STORM_COLORS[!isNum(flash) || flash <= 0 ? 0 : flash < 10 ? 1 : flash < 30 ? 2 : 3];
 
 /** Podstawy chmur od najmniejszego pokrycia (rysowane najpierw, większe pokrycie na wierzchu). */
 export const CLOUD_BASES = Object.freeze([
@@ -54,15 +58,14 @@ export const CLOUD_BASES = Object.freeze([
   { key: "cloud_base_79", fill: "#000000", stroke: "#000000", label: ">7.9 okt." },
 ]);
 
+// Kod rodzaju opadu z API (pcpttl_type_max), jak w kodzie wykresu meteo.pl.
+const PRECIPITATION_TYPE_COLORS = { 1: COLOR.rain, 2: COLOR.snow, 3: COLOR.sleet };
+
 /**
- * Rodzaj opadu nie jest w API opisany, więc wynika z temperatury powietrza:
- * ≤ 0 °C śnieg, ≤ 2 °C deszcz ze śniegiem, powyżej deszcz.
+ * Kolor opadu z kodu rodzaju: 1 deszcz, 2 śnieg, 3 deszcz ze śniegiem. Dla kodu 0 (opad śladowy)
+ * zwraca null - meteo.pl takich słupków nie koloruje.
  */
-export function precipitationColor(temperature) {
-  if (isNum(temperature) && temperature <= 0) return COLOR.snow;
-  if (isNum(temperature) && temperature <= 2) return COLOR.sleet;
-  return COLOR.rain;
-}
+export const precipitationColor = (type) => PRECIPITATION_TYPE_COLORS[type] ?? null;
 
 // Ciśnienie na poziomie stacji (hPa): pasma co 2 hPa z granicami w x1.9, x3.9, ...;
 // kolor pasma interpolowany między punktami kontrolnymi.
