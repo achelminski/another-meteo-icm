@@ -34,10 +34,23 @@
     }
   },
   "entity": {
+    "button": {
+      "refresh": {
+        "name": "Refresh data"
+      }
+    },
     "sensor": {
       "meteogram": {
         "name": "Meteogram"
+      },
+      "last_sync": {
+        "name": "Last synchronization"
       }
+    }
+  },
+  "exceptions": {
+    "refresh_failed": {
+      "message": "Failed to fetch data from meteo.pl - the entities keep showing the last fetched data."
     }
   }
 }

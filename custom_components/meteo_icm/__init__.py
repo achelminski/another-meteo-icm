@@ -15,7 +15,7 @@ from .api import MeteoIcmClient
 from .const import DOMAIN, LOGGER
 from .coordinator import MeteoIcmConfigEntry, MeteoIcmCoordinator
 
-PLATFORMS = [Platform.SENSOR, Platform.WEATHER]
+PLATFORMS = [Platform.BUTTON, Platform.SENSOR, Platform.WEATHER]
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 FRONTEND_DIR = Path(__file__).parent / "frontend"

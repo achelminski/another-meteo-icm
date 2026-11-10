@@ -32,3 +32,8 @@ class MeteoIcmEntity(CoordinatorEntity[MeteoIcmCoordinator]):
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{key}"
         self._attr_device_info = device_info(coordinator)
+
+    @property
+    def available(self) -> bool:
+        # Po nieudanej aktualizacji zostają ostatnie pobrane dane - encja nie staje się niedostępna.
+        return self.coordinator.data is not None

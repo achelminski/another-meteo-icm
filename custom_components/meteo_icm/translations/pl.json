@@ -34,10 +34,23 @@
     }
   },
   "entity": {
+    "button": {
+      "refresh": {
+        "name": "Pobierz dane"
+      }
+    },
     "sensor": {
       "meteogram": {
         "name": "Meteogram"
+      },
+      "last_sync": {
+        "name": "Ostatnia synchronizacja"
       }
+    }
+  },
+  "exceptions": {
+    "refresh_failed": {
+      "message": "Nie udało się pobrać danych z meteo.pl - encje pokazują ostatnie pobrane dane."
     }
   }
 }

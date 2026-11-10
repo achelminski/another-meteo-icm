@@ -123,6 +123,11 @@ class MeteoIcmWeather(SingleCoordinatorWeatherEntity[MeteoIcmCoordinator]):
         self._attr_device_info = device_info(coordinator)
         self._observer = Observer(coordinator.latitude, coordinator.longitude)
 
+    @property
+    def available(self) -> bool:
+        # Jak w MeteoIcmEntity: po nieudanej aktualizacji pokazujemy ostatni pobrany meteogram.
+        return self.coordinator.data is not None
+
     def _now_value(self, key: str) -> float | None:
         data = self.coordinator.data
         idx = data.index_at(dt_util.utcnow())
@@ -177,7 +182,12 @@ class MeteoIcmWeather(SingleCoordinatorWeatherEntity[MeteoIcmCoordinator]):
     @callback
     def _async_forecast_hourly(self) -> list[Forecast] | None:
         data = self.coordinator.data
-        start = data.index_at(dt_util.utcnow()) or 0
+        now = dt_util.utcnow()
+        start = data.index_at(now)
+        if start is None:
+            if now > data.first_time:
+                return []  # stary meteogram (API niedostępne) już się skończył
+            start = 0
         forecast: list[Forecast] = []
         for idx, when in enumerate(data.times):
             if idx < start:

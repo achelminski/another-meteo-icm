@@ -47,6 +47,10 @@ Encje dla Warszawy (dla 240 h: `weather.meteo_icm_warszawa_240_h` i `sensor.mete
 |---|---|
 | `weather.meteo_icm_warszawa` | Warunki „teraz” (godzina prognozy obejmująca bieżący czas): temperatura, odczuwalna, punkt rosy, wilgotność, ciśnienie, wiatr i porywy, kierunek, zachmurzenie, widzialność; prognoza godzinowa. Stan (`condition`) wyznaczany z zachmurzenia, opadu i jego rodzaju, burzy, mgły, porywów i położenia słońca, z progami ikon meteo.pl. Opad śladowy (`precipitation_type` 0) nie zmienia stanu i nie jest rysowany na karcie. Opad i jego szansa we wpisie prognozy dotyczą godziny, która się o tym czasie zaczyna. |
 | `sensor.meteo_icm_warszawa_meteogram` | Stan = czas przebiegu modelu. Atrybuty: `model`, `latitude`, `longitude`, `first_ts` (unix, początek serii), `interval` (s, zwykle 3600) oraz tablice serii. |
+| `sensor.meteo_icm_warszawa_ostatnia_synchronizacja` | Diagnostyczny: data i godzina ostatniej udanej synchronizacji z meteo.pl (także gdy nie było nowego przebiegu). |
+| `button.meteo_icm_warszawa_pobierz_dane` | Pobiera meteogram od razu, nawet gdy przebieg modelu się nie zmienił. Gdy się nie uda, zgłasza błąd, a dane zostają. |
+
+Identyfikatory sensora synchronizacji i przycisku powstają z nazw w języku HA (po angielsku: `…_last_synchronization`, `…_refresh_data`).
 
 Wartość *i*-tego elementu serii dotyczy czasu `first_ts + i * interval`; opad i burza to sumy za godzinę kończącą się o tym czasie. Serie w atrybutach sensora:
 
@@ -71,6 +75,11 @@ Atrybuty sensora nie są zapisywane w historii (recorderze) — to duże tablice
 
 Co 30 minut integracja sprawdza, czy ICM opublikował nowy przebieg modelu (lekkie zapytanie).
 Pełny meteogram jest pobierany tylko wtedy, gdy przebieg jest nowy — czyli kilka razy na dobę.
+
+Gdy meteo.pl nie odpowiada, encje nie stają się niedostępne: zostaje ostatni pobrany meteogram, a sensor
+„Ostatnia synchronizacja” pokazuje, z kiedy są dane. Gdy stara prognoza się skończy, prognoza godzinowa
+jest pusta. Ostatnie dane są trzymane tylko w pamięci, więc po restarcie HA przy niedostępnym API
+integracja czeka na pierwsze udane pobranie.
 
 ## Karta meteogramu
 

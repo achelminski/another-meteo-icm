@@ -1,4 +1,4 @@
-"""Sensor 'Meteogram': czas przebiegu modelu + pełne serie godzinowe w atrybutach (dla wykresów)."""
+"""Sensory: 'Meteogram' (czas przebiegu modelu + serie godzinowe w atrybutach) i czas ostatniej synchronizacji."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
-from homeassistant.const import MATCH_ALL
+from homeassistant.const import MATCH_ALL, EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
@@ -21,7 +21,8 @@ async def async_setup_entry(
     entry: MeteoIcmConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    async_add_entities([MeteoIcmMeteogramSensor(entry.runtime_data)])
+    coordinator = entry.runtime_data
+    async_add_entities([MeteoIcmMeteogramSensor(coordinator), MeteoIcmLastSyncSensor(coordinator)])
 
 
 class MeteoIcmMeteogramSensor(MeteoIcmEntity, SensorEntity):
@@ -51,3 +52,18 @@ class MeteoIcmMeteogramSensor(MeteoIcmEntity, SensorEntity):
             "interval": int(data.interval.total_seconds()),
             **data.series,
         }
+
+
+class MeteoIcmLastSyncSensor(MeteoIcmEntity, SensorEntity):
+    """Czas ostatniej udanej synchronizacji z API (także gdy nie było nowego przebiegu)."""
+
+    _attr_translation_key = "last_sync"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator: MeteoIcmCoordinator) -> None:
+        super().__init__(coordinator, "last_sync")
+
+    @property
+    def native_value(self) -> datetime:
+        return self.coordinator.last_update_success_time
